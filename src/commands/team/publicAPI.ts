@@ -1,4 +1,8 @@
-import { createPublicAPIKeyHandler, listPublicAPIKeysHandler, revokePublicAPIKeyHandler } from '../../command-handlers';
+import {
+    createPublicAPIKeyHandler,
+    listPublicAPIKeysHandler,
+    revokePublicAPIKeyHandler,
+} from '../../command-handlers/index.js';
 import { logger } from '../../logger.js';
 import { Command } from 'commander';
 

@@ -1,5 +1,5 @@
-import { createPublicAPIKey, listPublicAPIKeys, revokePublicAPIKey } from '../endpoints';
-import { connectAndPrepare } from '../modules/database';
+import { createPublicAPIKey, listPublicAPIKeys, revokePublicAPIKey } from '../endpoints/index.js';
+import { connectAndPrepare } from '../modules/database/index.js';
 
 export const createPublicAPIKeyHandler = async (description: string) => {
     const { db, localConfiguration } = await connectAndPrepare({ autoSync: false });

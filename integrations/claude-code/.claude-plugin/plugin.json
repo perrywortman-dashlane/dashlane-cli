@@ -1,0 +1,14 @@
+{
+  "name": "dashlane",
+  "displayName": "Dashlane",
+  "version": "0.1.0",
+  "description": "Call APIs with tokens from your Dashlane vault. Claude never sees the secret: the Dashlane CLI adds it to the request.",
+  "author": {
+    "name": "Dashlane",
+    "url": "https://www.dashlane.com"
+  },
+  "homepage": "https://cli.dashlane.com",
+  "repository": "https://github.com/Dashlane/dashlane-cli",
+  "license": "Apache-2.0",
+  "keywords": ["dashlane", "secrets", "credentials", "api", "mcp", "security"]
+}

@@ -3,10 +3,10 @@ import {
     requestOpaqueMPLoginWithAuthTicket,
     requestOpaqueMPLoginWithAuthTicketOutput,
     completeOpaqueMPLoginWithAuthTicket,
-} from '../../../endpoints';
-import { DashlaneApiError } from '../../../requestApi';
+} from '../../../endpoints/index.js';
+import { DashlaneApiError } from '../../../requestApi.js';
 
-import { serverConfig, KEY_STRETCHING_CONFIG } from './constants';
+import { serverConfig, KEY_STRETCHING_CONFIG } from './constants.js';
 
 /**
  * Attempt an Opaque login for the user and mark the device as proven on success

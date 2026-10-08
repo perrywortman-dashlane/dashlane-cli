@@ -1,4 +1,4 @@
-import { Command, Option } from 'commander';
+import { Command, Option, InvalidArgumentError } from 'commander';
 import { devicesCommands } from './devices.js';
 import { teamCommands } from './team/index.js';
 import { configureCommands } from './configure.js';
@@ -15,7 +15,17 @@ import {
     runBackup,
     runSecret,
     runStatus,
+    runVaultMcp,
 } from '../command-handlers/index.js';
+import { DEFAULT_HTTP_PORT, DEFAULT_IDLE_TIMEOUT_MINUTES, parseIdleTimeoutMinutes } from '../modules/mcp/index.js';
+
+const parseHttpPort = (value: string): number => {
+    const port = Number(value);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new InvalidArgumentError('Port must be an integer between 1 and 65535.');
+    }
+    return port;
+};
 
 export const rootCommands = (params: { program: Command }) => {
     const { program } = params;
@@ -108,6 +118,20 @@ export const rootCommands = (params: { program: Command }) => {
     teamCommands({ program });
 
     configureCommands({ program });
+
+    program
+        .command('mcp')
+        .description('Start the vault MCP server for AI agent credential brokering')
+        .option('--no-sync', 'Skip vault sync at startup')
+        .option('--http', 'Expose the server over localhost HTTP instead of stdio (for dev containers)')
+        .option('--port <number>', 'HTTP port to listen on (use with --http)', parseHttpPort, DEFAULT_HTTP_PORT)
+        .option(
+            '--idle-timeout <minutes>',
+            'Stop the HTTP server after this many minutes without authenticated requests, 0 = never (use with --http)',
+            parseIdleTimeoutMinutes,
+            DEFAULT_IDLE_TIMEOUT_MINUTES
+        )
+        .action(runVaultMcp);
 
     program
         .command('backup')

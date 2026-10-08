@@ -13,7 +13,7 @@ import { DeviceConfiguration, LocalConfiguration } from '../../types.js';
 import { askEmailAddress, askMasterPassword } from '../../utils/dialogs.js';
 import { getEnvDeviceCredentials, hasEnvDeviceCredentials } from '../../utils/index.js';
 import { logger } from '../../logger.js';
-import { getRemoteAuthenticationAndSSOInfo, RemoteOrSSOAuthenticationType } from '../auth/utils';
+import { getRemoteAuthenticationAndSSOInfo, RemoteOrSSOAuthenticationType } from '../auth/utils/index.js';
 
 const SERVICE = 'dashlane-cli';
 

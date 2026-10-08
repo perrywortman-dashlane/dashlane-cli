@@ -1,0 +1,59 @@
+# Vault MCP Server for AI Agents
+
+The Dashlane CLI includes a vault MCP server that acts as a **credential broker** for AI agents.
+The agent can search your vault and make authenticated API calls — without ever seeing your credentials.
+Secure Notes work on every Dashlane plan; Secrets are available on Business plans.
+
+Dashlane reads the credential internally, injects the appropriate authorization header, and returns the API response.
+The agent only sees metadata (titles, opaque session tokens) and API results — never passwords, tokens, or secret values.
+
+## How it works
+
+```
+  Agent                    Dashlane MCP               External API
+    |                           |                           |
+    |  search_vault("github")   |                           |
+    | ------------------------> |                           |
+    |                           |                           |
+    |    {token, title}         |                           |
+    | <------------------------ |                           |
+    |                           |                           |
+    |  call_api(token, url)     |                           |
+    | ------------------------> |                           |
+    |                           |  check website rule       |
+    |                           |  read credential          |
+    |                           |  inject Authorization     |
+    |                           |  GET api.github.com       |
+    |                           | ------------------------> |
+    |                           |                           |
+    |                           |  response                 |
+    |                           | <------------------------ |
+    |                           |                           |
+    |  API response (no creds)  |                           |
+    | <------------------------ |                           |
+    |                           |                           |
+```
+
+## Prerequisites
+
+- Dashlane CLI installed (`dcli` available in PATH)
+- Logged in and synced once in a terminal (`dcli sync`)
+- Credentials stored as **Secrets** or **Secure Notes** in your Dashlane vault
+- A rule for each credential that says which website may receive it (calls are blocked by default)
+
+## Quick start
+
+```sh
+# 1. Log in and sync once, in a terminal
+dcli sync
+
+# 2. Allow your GitHub token to be sent to the GitHub API
+dcli configure mcp-allow --title "GitHub API" --website api.github.com
+
+# 3. Add the server to Claude Code (Claude Code starts it automatically)
+claude mcp add --transport stdio dashlane-vault -- dcli mcp
+```
+
+Start a new Claude Code session and ask: "Search my vault for GitHub credentials and list my repos."
+
+See [Setup](./setup) for more clients, [Tools](./tools) for all available tools, and [Security](./security) for the full security model.

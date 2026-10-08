@@ -1,0 +1,15 @@
+{
+  "name": "dashlane",
+  "owner": {
+    "name": "Dashlane",
+    "url": "https://www.dashlane.com"
+  },
+  "description": "Dashlane plugins for Claude Code",
+  "plugins": [
+    {
+      "name": "dashlane",
+      "source": "./integrations/claude-code",
+      "description": "Call APIs with tokens from your Dashlane vault. Claude never sees the secret."
+    }
+  ]
+}

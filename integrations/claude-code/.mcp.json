@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "dashlane": {
+      "command": "dcli",
+      "args": ["mcp"]
+    }
+  }
+}

@@ -2,7 +2,7 @@ import { performTokenVerification } from '../../endpoints/index.js';
 import { completeLoginWithAuthTicket } from '../../endpoints/completeLoginWithAuthTicket.js';
 import { logger } from '../../logger.js';
 import { askOtp } from '../../utils/index.js';
-import { getRemoteAuthenticationAndSSOInfo, RemoteOrSSOAuthenticationType } from './utils';
+import { getRemoteAuthenticationAndSSOInfo, RemoteOrSSOAuthenticationType } from './utils/index.js';
 
 interface Params {
     login: string;

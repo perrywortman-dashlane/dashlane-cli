@@ -1,7 +1,7 @@
 import { RequestFunctionOptions } from '@dashlane/apiconnect-utils';
 import os from 'os';
 import { got } from 'got';
-import { cliVersionToString, CLI_VERSION } from '../cliVersion';
+import { cliVersionToString, CLI_VERSION } from '../cliVersion.js';
 
 const makeStagingCloudflareHeaders = () =>
     process.env.CLOUDFLARE_SERVICE_TOKEN_ACCESS

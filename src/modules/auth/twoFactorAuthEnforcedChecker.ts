@@ -1,7 +1,7 @@
 import { getPremiumStatus } from '../../endpoints/index.js';
 import { LocalConfiguration } from '../../types.js';
 import { hasEnvDeviceCredentials } from '../../utils/index.js';
-import { getRemoteAuthenticationAndSSOInfo, RemoteOrSSOAuthenticationType } from './utils';
+import { getRemoteAuthenticationAndSSOInfo, RemoteOrSSOAuthenticationType } from './utils/index.js';
 
 export const twoFactorAuthEnforcedChecker = async (localConfiguration: LocalConfiguration, login: string) => {
     const remoteAuthentication: RemoteOrSSOAuthenticationType = hasEnvDeviceCredentials()

@@ -16,6 +16,18 @@ Follow our [installation guide](https://cli.dashlane.com/install) to install the
 -   [for Personal](https://cli.dashlane.com/personal)
 -   [for Business](https://cli.dashlane.com/business)
 
+## AI Agent Integration (MCP)
+
+The CLI includes an MCP server that acts as a credential broker for AI agents. Agents can search your vault and make authenticated API calls — without ever seeing your credentials.
+
+To add to Claude Code (the agent starts the MCP server automatically):
+
+```sh
+claude mcp add --transport stdio dashlane-vault -- dcli mcp
+```
+
+See the [full documentation](https://cli.dashlane.com/integrations/vault-mcp) for all supported clients, available tools, and security model. For MCP development, see [src/modules/mcp/README.md](src/modules/mcp/README.md).
+
 ## For development
 
 Install the dependencies:

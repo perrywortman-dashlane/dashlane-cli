@@ -6,6 +6,7 @@ export * from './inject.js';
 export * from './lock.js';
 export * from './logout.js';
 export * from './teamMcp.js';
+export * from './vaultMcp.js';
 export * from './passwords.js';
 export * from './read.js';
 export * from './publicAPI.js';

@@ -1,0 +1,228 @@
+# Setup
+
+The vault MCP server uses the standard [Model Context Protocol](https://modelcontextprotocol.io/) stdio transport,
+so it works with any MCP-compatible client. The client spawns `dcli mcp` automatically — you don't need to start it separately.
+
+| Flag                       | Description                                                                         |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `--no-sync`                | Skip vault sync at startup (useful offline or if vault is fresh)                    |
+| `--http`                   | Serve over localhost HTTP instead of stdio (for dev containers)                     |
+| `--port <n>`               | HTTP port to listen on (default `3277`; only used with `--http`)                    |
+| `--idle-timeout <minutes>` | Stop the HTTP server after this many minutes without authenticated requests (default `30`, `0` = never; only used with `--http`) |
+
+With `--http`, the server stops itself after the idle timeout and prints a message on stderr. Run `dcli mcp --http` again to continue.
+
+- Only requests with a valid token count as activity. An open SSE stream (`GET /mcp`) with no requests counts as idle.
+- After a restart, the agent must search the vault again: session tokens from before the stop are no longer valid.
+- `--idle-timeout` has no effect without `--http`. In stdio mode the server already stops when the agent session ends.
+
+## Before you start
+
+1. **Log in once in a terminal.** Your AI tool starts `dcli mcp` in the background, where it cannot ask for your
+   login or master password. Run `dcli sync` in a terminal first, and keep the master password saved
+   (`dcli configure save-master-password true`, the default).
+2. **Allow each credential for its website.** Calls are blocked by default. See
+   [Allow a credential for a website](#allow-a-credential-for-a-website).
+
+### Claude Code
+
+```sh
+claude mcp add --transport stdio dashlane-vault -- dcli mcp
+```
+
+To remove:
+
+```sh
+claude mcp remove dashlane-vault
+```
+
+### Cursor
+
+In Cursor, go to **Settings > MCP** and add a new server:
+
+```json
+{
+  "mcpServers": {
+    "dashlane-vault": {
+      "command": "dcli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+In Windsurf, open **Settings > AI > MCP Servers** and add:
+
+```json
+{
+  "mcpServers": {
+    "dashlane-vault": {
+      "command": "dcli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Continue.dev
+
+Add to your `.continue/config.yaml`:
+
+```yaml
+mcpServers:
+  - name: dashlane-vault
+    command: dcli
+    args:
+      - mcp
+```
+
+### Cline
+
+In VS Code, open Cline's MCP settings and add:
+
+```json
+{
+  "mcpServers": {
+    "dashlane-vault": {
+      "command": "dcli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Custom agents (MCP SDK)
+
+Any agent built with the [MCP SDK](https://github.com/modelcontextprotocol/sdk) can connect to the vault MCP server
+by spawning `dcli mcp` as a stdio subprocess.
+
+## Using the vault MCP from a dev container
+
+If your editor or agent runs **inside a container** (VS Code Dev Containers, Docker, Podman, JetBrains Gateway, …),
+the default stdio transport won't work: the container can't spawn `dcli` on your host, and your vault lives on the host.
+Instead, run the server over **localhost HTTP on the host** and connect to it from inside the container. Your vault and
+master password never leave the host — only the credential-broker stream crosses the boundary.
+
+**1. On the host**, start the HTTP transport:
+
+```sh
+dcli mcp --http
+```
+
+It binds to `http://127.0.0.1:3277/mcp` (loopback only) and prints a one-time bearer token to stderr.
+After 30 minutes without requests it stops by itself and the vault is closed; run the command again to continue,
+or change the delay with `--idle-timeout <minutes>` (`0` = never stop).
+
+> `dcli mcp --http` syncs your vault on startup. If your vault is already synced or you reconnect often,
+> add `--no-sync` to skip the startup sync for a faster launch — run `dcli sync` separately to refresh:
+> `dcli mcp --http --no-sync`.
+
+**2. In the container**, point your MCP client at the host. Containers reach the host via `host.docker.internal`:
+
+```sh
+claude mcp add --transport http dashlane-vault http://host.docker.internal:3277/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+For a client that only supports the stdio transport, bridge to the host HTTP server with
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote) inside the container:
+
+```json
+{
+  "mcpServers": {
+    "dashlane-vault": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://host.docker.internal:3277/mcp", "--header", "Authorization: Bearer <token>"]
+    }
+  }
+}
+```
+
+### Reusing a fixed token
+
+A new token is generated on each start. To keep a stable token across restarts, set it on the host before starting:
+
+```sh
+export DASHLANE_MCP_HTTP_TOKEN="$(openssl rand -base64 32)"
+dcli mcp --http
+```
+
+### Per-environment notes
+
+- **Docker on Linux**: add `--add-host=host.docker.internal:host-gateway` to the container so the hostname resolves to the host.
+- **Podman**: both `host.docker.internal` and `host.containers.internal` work and are accepted by the server.
+- **Cloud dev environments** (GitHub Codespaces, Gitpod, …): the container runs in the cloud, not on your laptop,
+  so `host.docker.internal` won't reach your local vault. Run `dcli` inside that environment, or expose your local
+  server through a secure tunnel.
+
+> **Keep the default `127.0.0.1` binding and treat the token like a password.** See [Security](/integrations/vault-mcp/security)
+> for the HTTP transport threat model.
+
+## Storing credentials
+
+Store your API tokens and keys as **Secrets** or **Secure Notes** in Dashlane:
+
+1. Open Dashlane and create a new Secret or Secure Note
+2. Set the **title** to something searchable and unique (e.g., "GitHub API", "AWS Production")
+3. Paste only your API key, PAT, or token as the **content**, on one line (credentials with line breaks are refused)
+4. Sync your vault: `dcli sync`
+
+The MCP server searches titles only, so put the service name in the title. For example, an agent asked to "use my
+GitHub token" searches for `github`, which matches a secret titled "GitHub API".
+
+Secure Notes work on every Dashlane plan. Secrets are available on Business plans.
+
+If you add or change a credential while the server runs, the agent can call the `sync_vault` tool to get the change.
+
+## Allow a credential for a website
+
+The broker only sends a credential to the websites you allow for it. Everything else is blocked, and the agent gets a
+message that tells you which command to run. Run these commands yourself, in your own terminal. `mcp-allow` asks for
+confirmation, and it does not run from scripts or AI agents.
+
+```sh
+# Allow the item titled "GitHub API" to be sent to api.github.com
+dcli configure mcp-allow --title 'GitHub API' --website api.github.com
+
+# See all rules
+dcli configure mcp-list
+
+# Remove one website from a rule, or the whole rule
+dcli configure mcp-revoke --title 'GitHub API' --website api.github.com
+dcli configure mcp-revoke --title 'GitHub API'
+dcli configure mcp-revoke --index 0
+```
+
+- `--title` must match the item title exactly. The rule is saved by item ID, so renaming the item keeps the rule.
+  If several items have the same title, add `--id <id>`.
+- `--website` is an exact hostname, without `https://`, path or port. Wildcards are not supported.
+- Run `mcp-allow` again with another `--website` to add more websites to the same rule.
+- Use single quotes around the title so your shell does not run anything inside it.
+
+### Auth type handling
+
+By default, the credential is sent in the `Authorization` header and the auth type is auto-detected from the
+credential value:
+
+| Stored value                   | Detected auth | Header sent                        |
+| ------------------------------ | ------------- | ---------------------------------- |
+| `ghp_abc123`                   | Bearer        | `Authorization: Bearer ghp_abc123` |
+| base64 of `myuser:mypassword` | Basic         | `Authorization: Basic <base64>`    |
+
+For **Basic auth**, store the base64-encoded `username:password` string. You can generate it with:
+
+```sh
+echo -n "myuser:mypassword" | base64
+```
+
+> **Note:** Raw `username:password` values (not base64 encoded) are treated as Bearer tokens,
+> because some Bearer tokens legitimately contain colons (e.g., AWS keys, custom API keys).
+
+To choose the auth type yourself, add `--auth-scheme` to the rule:
+
+```sh
+dcli configure mcp-allow --title 'Legacy API' --website api.example.com --auth-scheme Token
+# sends: Authorization: Token <credential>
+```
