@@ -1,0 +1,94 @@
+# Security
+
+## What the agent can see
+
+| Data                         | Visible to agent | Example                        |
+| ---------------------------- | ---------------- | ------------------------------ |
+| Secret/note title            | Yes              | "GitHub API"                   |
+| Opaque session token         | Yes              | `a3f8c2Qk9x...`               |
+| Item type and dates          | Yes              | `itemType: "secret"`           |
+| API response body and status | Yes              | `{ status: 200, body: {...} }` |
+| Rate limit headers           | Yes              | `x-ratelimit-remaining: 4995`  |
+| Credential value             | **No**           | —                              |
+| Real vault ID                | **No**           | —                              |
+
+The credential value is read and used only inside the `dcli` process. It is never part of a tool result, and it is
+never written to the audit log.
+
+## Security model
+
+- **The credential stays in `dcli`.** `call_api` reads the credential, adds it to the request header, and returns only
+  the API response. The agent never receives the credential.
+- **Blocked by default.** A credential can only be sent to the websites you allowed for it with
+  `dcli configure mcp-allow` (see [Setup](./setup#allow-a-credential-for-a-website)). A call to any other website, or for
+  a credential without a rule, is blocked before the credential is read. Redirects are not followed: the agent must
+  call the new URL, and that call is checked again.
+- **Echoed credentials are hidden.** If an API returns the credential in its response (some test and echo services do),
+  it is replaced with `[REDACTED]`, including inside JSON and after base64 content is decoded.
+- **Rules need a person.** `mcp-allow` only runs in a terminal and asks for confirmation. This makes it harder for an
+  agent to allow a website by itself (see [Limitations](#limitations)).
+- **The agent cannot change the credential header.** `Authorization`, `Proxy-Authorization`, `Cookie` and `Host`
+  headers sent by the agent are dropped, whatever their letter case.
+- **Search matches titles only.** `search_vault` compares the query with item titles, so the agent cannot test guesses
+  against credential values or vault IDs. Queries need at least 3 characters; there are limits of 10 searches per
+  minute and 100 per session.
+- **Session-scoped opaque tokens** replace real vault IDs. They are encrypted with AES-256-GCM using a random key per
+  process, so they are useless outside the current session.
+- **HTTPS to public addresses only.** HTTP, localhost, private IP ranges and cloud metadata addresses are blocked.
+- **Untrusted responses are marked.** API responses start with a marker that tells the agent not to follow
+  instructions found in the data.
+- **Credentials with line breaks are refused.** A credential that contains line breaks or other control characters
+  cannot be sent as a header value, so the call is refused with a clear error.
+- **Audit log.** Every tool call, including blocked calls, is written to a local log that only your user can read
+  (file mode `600`). Secret IDs are shortened, URLs are capped at 500 characters, and error messages never include
+  header values.
+- **Batch limit.** `call_api_batch` accepts at most 20 requests.
+
+## Stdio transport
+
+With the default stdio transport, your AI tool starts `dcli mcp` and stops it at the end of the session. stdin and
+stdout are reserved for the MCP connection: logs go to stderr, and `dcli mcp` never asks for your login or master
+password there. If the vault cannot be unlocked without a question, the server stops with a message that tells you to
+run `dcli sync` in a terminal first.
+
+## HTTP transport security
+
+The optional `--http` transport (for [dev containers](./setup#using-the-vault-mcp-from-a-dev-container)) adds a local
+network listener:
+
+- **Loopback-only binding.** The server binds to `127.0.0.1`, so it is never reachable from the local network or the
+  internet. There is no flag to bind other interfaces.
+- **Bearer token required on every request.** A 256-bit random token gates all access. Any process on the same host can
+  reach a localhost port, so the token (not the network) is the security boundary. Comparisons are constant-time,
+  failed attempts are logged as `http_auth`, and the token is never logged.
+- **Token kept out of process listings.** There is no `--token` flag, because command-line arguments are visible in
+  `ps`. The token is generated and printed once to stderr, or read from `DASHLANE_MCP_HTTP_TOKEN`.
+- **DNS-rebinding and CSRF protection.** The `Host` header must be `localhost`, `127.0.0.1`, `[::1]`,
+  `host.docker.internal` or `host.containers.internal`. The token is not a cookie, so browsers never attach it to
+  cross-site requests.
+- **Stops when idle.** After 30 minutes without authenticated requests, the server clears its session tokens, closes
+  the vault and stops. Change this with `--idle-timeout <minutes>` (`0` = never stop).
+
+## Limitations
+
+We want you to know exactly what the broker protects, and what it does not.
+
+- **An agent with shell access can run `dcli` itself.** While your vault is unlocked, a command like `dcli secret` or
+  `dcli password` prints secrets in the terminal. The broker does not change this. If your agent can run shell
+  commands, review them, or use your AI tool's settings to block `dcli` commands.
+- **Allow rules are stored on your computer.** `mcp-allow` needs a terminal and a confirmation, but an agent with shell
+  access could still find a way to run it. Only add rules you typed yourself, and check them with
+  `dcli configure mcp-list`.
+- **A website you allow receives the credential.** The broker controls *where* a credential goes, not what the API
+  does with it. Rules use exact hostnames: a rule for `api.example.com` does not cover any other host.
+- **Redaction is a safety net.** It hides the exact credential (raw, JSON-escaped, and inside base64 content). An API
+  that transforms the credential in another way could still show it.
+- **One header per credential.** The credential is sent in a single header (`Authorization`). Custom headers such as
+  `x-api-key`, query-string credentials, request signing (for example AWS SigV4) and OAuth token
+  exchange are not supported yet.
+- **Rules are saved by item ID.** Renaming an item keeps its rule. If you delete an item and create it again, add
+  the rule again.
+- **HTTP transport token.** With `--http`, your AI tool stores the bearer token in its own configuration file. Anyone
+  who can read that file can use the broker while the server runs. Stop the server when you do not need it.
+- **DNS checks.** The private-address check resolves the hostname before the request, and the request resolves it
+  again. Allow rules limit which hostnames can receive a credential.

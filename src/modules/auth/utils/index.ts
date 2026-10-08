@@ -1,1 +1,1 @@
-export * from './getRemoteAuthenticationAndSSOInfo';
+export * from './getRemoteAuthenticationAndSSOInfo.js';

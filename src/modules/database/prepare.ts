@@ -40,6 +40,21 @@ export const prepareDB = (params: PrepareDB): DeviceConfiguration | null => {
             serverKeyEncrypted VARCHAR(255)
         );`
     ).run();
+    // Rules used to be keyed by title. They are now keyed by item id, so old rules are dropped (blocked by default).
+    const mcpPolicyColumns = db.prepare('PRAGMA table_info(mcpPolicy)').all() as { name: string }[];
+    if (mcpPolicyColumns.length > 0 && !mcpPolicyColumns.some((column) => column.name === 'itemId')) {
+        db.prepare('DROP TABLE mcpPolicy').run();
+    }
+    db.prepare(
+        `CREATE TABLE IF NOT EXISTS mcpPolicy (
+            login VARCHAR(255),
+            itemId VARCHAR(255),
+            title VARCHAR(255) NOT NULL,
+            allowedDomains TEXT NOT NULL,
+            authScheme VARCHAR(255),
+            PRIMARY KEY (login, itemId)
+        );`
+    ).run();
 
     return db.prepare('SELECT * FROM device LIMIT 1').get() as DeviceConfiguration | null;
 };

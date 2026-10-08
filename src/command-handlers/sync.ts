@@ -24,7 +24,8 @@ interface Sync {
     deviceConfiguration: DeviceConfiguration | null;
 }
 
-export const sync = async (params: Sync) => {
+/** Sync the local vault with the server. Returns the number of changes received. */
+export const sync = async (params: Sync): Promise<{ changes: number }> => {
     const { db } = params;
     let { localConfiguration } = params;
     logger.debug('Start syncing...');
@@ -129,4 +130,6 @@ export const sync = async (params: Sync) => {
         summaryCounted[key] = Object.keys(latestContent.summary[key]).length;
     });
     logger.debug(JSON.stringify(summaryCounted, null, 4));
+
+    return { changes: values.length };
 };

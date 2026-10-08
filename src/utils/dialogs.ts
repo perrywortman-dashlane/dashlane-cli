@@ -1,4 +1,9 @@
-import { confirm, input, password, select } from '@inquirer/prompts';
+import {
+    confirm as inquirerConfirm,
+    input as inquirerInput,
+    password as inquirerPassword,
+    select as inquirerSelect,
+} from '@inquirer/prompts';
 import { getEnvDeviceCredentials } from './deviceCredentials.js';
 import {
     PrintableVaultCredential,
@@ -12,6 +17,38 @@ import {
 const promptContext = {
     output: process.stderr,
 };
+
+let promptsDisabledReason: ((question: string) => string) | null = null;
+
+/**
+ * Make every prompt throw instead of reading stdin. Used by `dcli mcp` over stdio,
+ * where stdin carries the MCP client's messages, not the user's keyboard.
+ * `reason` receives the question that could not be asked, so the error can name it.
+ */
+export const disablePrompts = (reason: (question: string) => string) => {
+    promptsDisabledReason = reason;
+};
+
+/** Undo `disablePrompts`. Used by tests so the global setting does not leak into other tests. */
+export const enablePrompts = () => {
+    promptsDisabledReason = null;
+};
+
+const guardPrompt = <T extends (...args: never[]) => unknown>(prompt: T): T =>
+    ((...args: Parameters<T>) => {
+        if (promptsDisabledReason) {
+            const config = args[0] as { message?: unknown } | undefined;
+            const question =
+                typeof config?.message === 'string' ? config.message.replace(/[\s:?]+$/, '') : 'a question';
+            throw new Error(promptsDisabledReason(question));
+        }
+        return prompt(...args);
+    }) as T;
+
+const confirm = guardPrompt(inquirerConfirm);
+const input = guardPrompt(inquirerInput);
+const password = guardPrompt(inquirerPassword);
+const select = guardPrompt(inquirerSelect);
 
 export const askMasterPassword = async (): Promise<string> => {
     const deviceCredentials = getEnvDeviceCredentials();
@@ -178,3 +215,12 @@ export const askTokenRequestId = () => {
         promptContext
     );
 };
+
+export const askConfirmMcpAllow = (params: { title: string; website: string }) =>
+    confirm(
+        {
+            message: `Allow the MCP broker to send "${params.title}" to ${params.website}?`,
+            default: false,
+        },
+        promptContext
+    );

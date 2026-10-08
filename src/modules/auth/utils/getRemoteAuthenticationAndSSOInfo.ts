@@ -1,4 +1,4 @@
-import { getAuthenticationMethods, RemoteAuthenticationMethod } from '../../../endpoints';
+import { getAuthenticationMethods, RemoteAuthenticationMethod } from '../../../endpoints/index.js';
 interface GetRemoteAuthenticationAndSSOInfoParams {
     login: string;
     deviceAccessKey: string;

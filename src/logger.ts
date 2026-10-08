@@ -70,6 +70,15 @@ export const initLogger = (params: InitLogger) => {
     };
 };
 
+/**
+ * Send every log level to stderr. Used by `dcli mcp` over stdio, where stdout is the
+ * MCP channel and any extra line would corrupt the JSON-RPC stream.
+ */
+export const useStderrForLogs = () => {
+    logger.clear();
+    logger.add(new winston.transports.Console({ stderrLevels: Object.keys(customLevels.levels) }));
+};
+
 export const errorColor = (str: string) => {
     // Add ANSI escape codes to display text in red.
     return `\x1b[31m${str}\x1b[0m`;

@@ -1,5 +1,5 @@
 import { JSONPath } from 'jsonpath-plus';
-import { generateOtpFromSecret, generateOtpFromUri } from '../modules/crypto';
+import { generateOtpFromSecret, generateOtpFromUri } from '../modules/crypto/index.js';
 
 export const transformOtp = (secret: string) => {
     return generateOtpFromSecret(secret).token;

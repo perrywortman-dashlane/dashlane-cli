@@ -1,0 +1,79 @@
+# Tools
+
+## search_vault
+
+Search your vault for secrets and secure notes by title. Returns metadata only — credential values are never included.
+The query is compared with item titles only (case-insensitive).
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description                                    |
+| --------- | ------ | -------- | ---------------------------------------------- |
+| `query`   | string | Yes      | Part of the item title (3-100 chars)           |
+
+**Example:** "Search my vault for GitHub credentials"
+
+The returned IDs are session-scoped opaque tokens — they can only be used with `call_api` in the current session and cannot be reused or guessed.
+
+## call_api
+
+Make an authenticated API call through Dashlane. Provide a secret ID from `search_vault` and an API URL.
+Dashlane checks the website rule, reads the credential internally and adds it to the request header.
+
+- **Blocked by default:** the call only goes through if you allowed this credential for the URL's website
+  (`dcli configure mcp-allow`, see [Setup](./setup#allow-a-credential-for-a-website)). Otherwise the agent gets a
+  message with the command you can run.
+- **Header:** `Authorization` by default, with the auth type auto-detected (base64 `user:password` → **Basic**,
+  everything else → **Bearer**), unless the rule sets `--auth-scheme`.
+- **Echoed credentials:** if the API returns the credential, the agent sees `[REDACTED]`.
+- **Redirects** are not followed. The result contains the new location; calling it is checked again.
+
+**Parameters:**
+
+| Parameter  | Type     | Required | Description                                      |
+| ---------- | -------- | -------- | ------------------------------------------------ |
+| `secretId` | string   | Yes      | Secret ID from `search_vault` results            |
+| `url`      | string   | Yes      | Full HTTPS API URL                               |
+| `method`   | string   | No       | HTTP method (default: GET)                       |
+| `body`     | string   | No       | Request body (JSON string) for POST/PUT/PATCH    |
+| `headers`  | object   | No       | Additional headers (the credential header, `Proxy-Authorization`, `Cookie` and `Host` are dropped) |
+| `fields`   | string[] | No       | Only include these fields in response objects     |
+
+**Example:** "List my GitHub repos using my Dashlane credentials, only show name and language"
+
+The `fields` parameter is useful for verbose APIs — it filters response objects to only the fields you need,
+including nested structures like GitHub's search API `{items: [...]}`.
+
+## call_api_batch
+
+Same as `call_api` but accepts an array of requests and executes them in parallel.
+Uses a shared credential for all requests. Use this to reduce round trips when you need data from multiple endpoints.
+
+**Parameters:**
+
+| Parameter  | Type   | Required | Description                                                         |
+| ---------- | ------ | -------- | ------------------------------------------------------------------- |
+| `secretId` | string | Yes      | Secret ID (shared across all requests)                              |
+| `requests` | array  | Yes      | Array of request objects (same params as `call_api` minus secretId), at most 20 |
+
+**Example:** "Fetch my GitHub notifications and starred repos at the same time"
+
+## sync_vault
+
+Download the latest changes from your Dashlane account, for example a credential you just added or updated in the
+Dashlane app. The agent uses it when a search finds nothing or a call returns 401 after you changed a credential.
+
+- Calls made while a sync runs share that sync.
+- At most one sync every 30 seconds. A call during this time returns `status: "skipped"` and `retryAfterSeconds`.
+
+**Parameters:** none.
+
+## get_audit_logs
+
+View recent MCP activity — every `search_vault`, `call_api` and `sync_vault` call is logged with timestamp, tool name, status, and shortened secret ID. Blocked calls are logged too.
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description                                            |
+| --------- | ------ | -------- | ------------------------------------------------------ |
+| `count`   | number | No       | Number of recent entries to return (default: 20, max: 1000) |

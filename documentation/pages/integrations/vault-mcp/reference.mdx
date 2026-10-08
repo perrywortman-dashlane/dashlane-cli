@@ -1,0 +1,80 @@
+# Reference
+
+## Platform support
+
+The vault MCP server runs everywhere the Dashlane CLI does — **macOS**, **Linux**, and **Windows**.
+
+## Audit log location
+
+Audit logs are stored in the standard platform-specific data directory:
+
+| Platform | Audit log path                                              |
+| -------- | ----------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/dashlane-cli/mcp-audit.log`  |
+| Linux    | `~/.local/share/dashlane-cli/mcp-audit.log`                 |
+| Windows  | `%APPDATA%\dashlane-cli\mcp-audit.log`                      |
+
+Logs are in [JSON Lines](https://jsonlines.org/) format — one event per line, easy to search with `jq` or any text tool:
+
+```sh
+# View the last 5 API calls
+cat ~/Library/Application\ Support/dashlane-cli/mcp-audit.log | jq 'select(.tool == "call_api")' | tail -5
+```
+
+The file can only be read by your user (mode `600`).
+
+The `tool` field is one of `search_vault`, `call_api`, `sync_vault`, `get_audit_logs`, or `http_auth` — the last
+records a failed bearer-token authentication on the [HTTP transport](/integrations/vault-mcp/setup)
+(`status: "blocked"`, with a `reason` of `missing_token` or `invalid_token`; the token itself is never logged).
+
+## Website rules
+
+Secrets are **blocked by default**. Rules are stored per vault item (by item id) in the local database. The title is found in your vault when you run `mcp-allow`. If several items share a title, add `--id <id>`. Renaming an item keeps its rule.
+
+| Command                                                                          | What it does                                        |
+| -------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `dcli configure mcp-allow --title <title> --website <host> [--auth-scheme <word>]` | Allow a secret to be sent to an exact host          |
+| `dcli configure mcp-list`                                                        | List all rules with their index                     |
+| `dcli configure mcp-revoke --title <title> [--website <host>]`                   | Remove one host, or the whole rule                  |
+| `dcli configure mcp-revoke --index <n> [--website <host>]`                       | Same, using the index shown by `mcp-list`           |
+
+- Hosts are exact. Wildcards are not supported. The port is ignored.
+- `mcp-allow` needs a terminal and a confirmation. It fails in scripts and agents.
+- Blocked calls are written to the audit log with `status: "blocked"`.
+
+## What's supported
+
+The vault MCP server covers the most common developer use case: **making authenticated API calls
+with tokens stored in Dashlane**, without exposing those tokens to AI agents.
+
+- **Bearer, Basic or a custom scheme** in the `Authorization` header — covers most REST APIs (GitHub, GitLab, Stripe, OpenAI, internal services, etc.)
+- **Website rules** — each credential is only sent to the websites you allow
+- **Secrets and Secure Notes** — the two vault item types developers most commonly use for API credentials
+- **Any MCP-compatible client** — works with Claude Code, Cursor, Windsurf, Continue.dev, Cline, and custom agents
+- **stdio and localhost HTTP transports** — stdio by default; `--http` exposes the server to clients running in dev containers
+
+## Troubleshooting
+
+**"… has no rule, so it cannot be sent to …" / "… is not allowed to be sent to …"** — Calls are blocked by default. Run the `dcli configure mcp-allow` command from the message in your own terminal, then ask the agent to try again.
+
+**"dcli mcp needs an answer to … but it cannot ask here"** — The server runs in the background of your AI tool and cannot ask questions. Run `dcli sync` in a terminal, keep the master password saved, then restart your AI tool.
+
+**"This credential cannot be sent … because it contains line breaks"** — Store only the token in the Secret or Secure Note, on one line.
+
+**Search does not find a credential you just added** — Ask the agent to sync (`sync_vault`), or run `dcli sync` in a terminal.
+
+**HTTP transport: "Stopped after N minutes without activity"** — The server stopped itself when idle. Run `dcli mcp --http` again, or use `--idle-timeout`. The agent must search again after a restart.
+
+**"Search query must be at least 3 characters"** — Queries under 3 characters are blocked to prevent vault enumeration.
+
+**"Search rate limit exceeded"** — You've hit the per-session (100) or per-minute (10) search limit. Wait a moment or restart the MCP server.
+
+**"Invalid or expired secret token"** — The secret ID is from a previous session. Run `search_vault` again to get a fresh token.
+
+**"Only HTTPS URLs are allowed"** — The MCP only supports HTTPS for security. HTTP, localhost, and private IP URLs are blocked.
+
+**"Failed to read credential from vault"** — The secret ID doesn't match a vault item. Run `dcli sync` and try `search_vault` again.
+
+**HTTP transport: 401 Unauthorized** — The client isn't sending the bearer token. Pass `Authorization: Bearer <token>` (the token is printed to stderr at startup, or set it via `DASHLANE_MCP_HTTP_TOKEN`).
+
+**HTTP transport: 403 Invalid Host** — The request's `Host` header isn't on the allow-list. Connect via `localhost`, `127.0.0.1`, or `host.docker.internal`; some clients must keep the URL host as-is rather than rewriting it.

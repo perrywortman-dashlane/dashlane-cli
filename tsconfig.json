@@ -98,5 +98,12 @@
         // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
         // "skipLibCheck": true /* Skip type checking all .d.ts files. */
     },
-    "exclude": ["documentation/**/*", "scripts/**/*"]
+    "exclude": ["documentation/**/*", "scripts/**/*"],
+    "ts-node": {
+        "transpileOnly": true,
+        "compilerOptions": {
+            "strict": false,
+            "skipLibCheck": true
+        }
+    }
 }
