@@ -100,6 +100,7 @@
     },
     "exclude": ["documentation/**/*", "scripts/**/*"],
     "ts-node": {
+        "transpileOnly": true,
         "compilerOptions": {
             "strict": false,
             "skipLibCheck": true
